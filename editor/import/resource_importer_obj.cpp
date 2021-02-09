@@ -203,7 +203,7 @@ static Error _parse_material_library(const String &p_path, Map<String, Ref<Spati
 	return OK;
 }
 
-static Error _parse_obj(const String &p_path, List<Ref<Mesh> > &r_meshes, bool p_single_mesh, bool p_generate_tangents, bool p_optimize, Vector3 p_scale_mesh, Vector3 p_offset_mesh, List<String> *r_missing_deps) {
+static Error _parse_obj(const String &p_path, List<Ref<Mesh> > &r_meshes, bool p_single_mesh, bool p_generate_tangents, int p_mesh_flags, Vector3 p_scale_mesh, Vector3 p_offset_mesh, List<String> *r_missing_deps) {
 
 	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Couldn't open OBJ file '%s', it may not exist or not be readable.", p_path));
@@ -214,7 +214,6 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh> > &r_meshes, bool p
 	bool generate_tangents = p_generate_tangents;
 	Vector3 scale_mesh = p_scale_mesh;
 	Vector3 offset_mesh = p_offset_mesh;
-	int mesh_flags = p_optimize ? Mesh::ARRAY_COMPRESS_DEFAULT : 0;
 
 	Vector<Vector3> vertices;
 	Vector<Vector3> normals;
@@ -351,7 +350,7 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh> > &r_meshes, bool p
 					surf_tool->set_material(material_map[current_material_library][current_material]);
 				}
 
-				mesh = surf_tool->commit(mesh, mesh_flags);
+				mesh = surf_tool->commit(mesh, p_mesh_flags);
 
 				if (current_material != String()) {
 					mesh->surface_set_name(mesh->get_surface_count() - 1, current_material.get_basename());
@@ -418,11 +417,11 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh> > &r_meshes, bool p
 	return OK;
 }
 
-Node *EditorOBJImporter::import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, List<String> *r_missing_deps, Error *r_err) {
+Node *EditorOBJImporter::import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags, List<String> *r_missing_deps, Error *r_err) {
 
 	List<Ref<Mesh> > meshes;
 
-	Error err = _parse_obj(p_path, meshes, false, p_flags & IMPORT_GENERATE_TANGENT_ARRAYS, p_flags & IMPORT_USE_COMPRESSION, Vector3(1, 1, 1), Vector3(0, 0, 0), r_missing_deps);
+	Error err = _parse_obj(p_path, meshes, false, p_flags & IMPORT_GENERATE_TANGENT_ARRAYS, p_compress_flags, Vector3(1, 1, 1), Vector3(0, 0, 0), r_missing_deps);
 
 	if (err != OK) {
 		if (r_err) {
@@ -491,7 +490,7 @@ void ResourceImporterOBJ::get_import_options(List<ImportOption> *r_options, int 
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "generate_tangents"), true));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::VECTOR3, "scale_mesh"), Vector3(1, 1, 1)));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::VECTOR3, "offset_mesh"), Vector3(0, 0, 0)));
-	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "optimize_mesh"), true));
+	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "optimize_mesh_flags", PROPERTY_HINT_FLAGS, "Vertex,Normal,Tangent,Color,TexUV,TexUV2,Bones,Weights,Index"), VS::ARRAY_COMPRESS_DEFAULT >> VS::ARRAY_COMPRESS_BASE));
 }
 bool ResourceImporterOBJ::get_option_visibility(const String &p_option, const Map<StringName, Variant> &p_options) const {
 
@@ -502,7 +501,7 @@ Error ResourceImporterOBJ::import(const String &p_source_file, const String &p_s
 
 	List<Ref<Mesh> > meshes;
 
-	Error err = _parse_obj(p_source_file, meshes, true, p_options["generate_tangents"], p_options["optimize_mesh"], p_options["scale_mesh"], p_options["offset_mesh"], NULL);
+	Error err = _parse_obj(p_source_file, meshes, true, p_options["generate_tangents"], int(p_options["optimize_mesh_flags"]) << VS::ARRAY_COMPRESS_BASE, p_options["scale_mesh"], p_options["offset_mesh"], NULL);
 
 	ERR_FAIL_COND_V(err != OK, err);
 	ERR_FAIL_COND_V(meshes.size() != 1, ERR_BUG);

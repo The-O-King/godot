@@ -44,7 +44,7 @@ class EditorSceneImporter : public Reference {
 protected:
 	static void _bind_methods();
 
-	Node *import_scene_from_other_importer(const String &p_path, uint32_t p_flags, int p_bake_fps);
+	Node *import_scene_from_other_importer(const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags);
 	Ref<Animation> import_animation_from_other_importer(const String &p_path, uint32_t p_flags, int p_bake_fps);
 
 public:
@@ -58,14 +58,14 @@ public:
 		IMPORT_GENERATE_TANGENT_ARRAYS = 256,
 		IMPORT_FAIL_ON_MISSING_DEPENDENCIES = 512,
 		IMPORT_MATERIALS_IN_INSTANCES = 1024,
-		IMPORT_USE_COMPRESSION = 2048,
+		//IMPORT_USE_COMPRESSION = 2048,
 		IMPORT_USE_NAMED_SKIN_BINDS = 4096,
 
 	};
 
 	virtual uint32_t get_import_flags() const;
 	virtual void get_extensions(List<String> *r_extensions) const;
-	virtual Node *import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, List<String> *r_missing_deps, Error *r_err = NULL);
+	virtual Node *import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags, List<String> *r_missing_deps, Error *r_err = NULL);
 	virtual Ref<Animation> import_animation(const String &p_path, uint32_t p_flags, int p_bake_fps);
 
 	EditorSceneImporter() {}
@@ -155,7 +155,7 @@ public:
 
 	virtual Error import(const String &p_source_file, const String &p_save_path, const Map<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files = NULL, Variant *r_metadata = NULL);
 
-	Node *import_scene_from_other_importer(EditorSceneImporter *p_exception, const String &p_path, uint32_t p_flags, int p_bake_fps);
+	Node *import_scene_from_other_importer(EditorSceneImporter *p_exception, const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags);
 	Ref<Animation> import_animation_from_other_importer(EditorSceneImporter *p_exception, const String &p_path, uint32_t p_flags, int p_bake_fps);
 
 	ResourceImporterScene();

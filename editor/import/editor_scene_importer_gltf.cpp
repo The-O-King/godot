@@ -976,9 +976,6 @@ Error EditorSceneImporterGLTF::_parse_meshes(GLTFState &state) {
 	if (!state.json.has("meshes"))
 		return OK;
 
-	bool compress_vert_data = state.import_flags & IMPORT_USE_COMPRESSION;
-	uint32_t mesh_flags = compress_vert_data ? Mesh::ARRAY_COMPRESS_DEFAULT : 0;
-
 	Array meshes = state.json["meshes"];
 	for (GLTFMeshIndex i = 0; i < meshes.size(); i++) {
 
@@ -1235,7 +1232,7 @@ Error EditorSceneImporterGLTF::_parse_meshes(GLTFState &state) {
 			}
 
 			//just add it
-			mesh.mesh->add_surface_from_arrays(primitive, array, morphs, mesh_flags);
+			mesh.mesh->add_surface_from_arrays(primitive, array, morphs, state.compress_flags);
 
 			if (p.has("material")) {
 				const int material = p["material"];
@@ -3155,7 +3152,7 @@ Spatial *EditorSceneImporterGLTF::_generate_scene(GLTFState &state, const int p_
 	return root;
 }
 
-Node *EditorSceneImporterGLTF::import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, List<String> *r_missing_deps, Error *r_err) {
+Node *EditorSceneImporterGLTF::import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags, List<String> *r_missing_deps, Error *r_err) {
 	print_verbose(vformat("glTF: Importing file %s as scene.", p_path));
 
 	GLTFState state;
@@ -3187,6 +3184,7 @@ Node *EditorSceneImporterGLTF::import_scene(const String &p_path, uint32_t p_fla
 	state.major_version = version.get_slice(".", 0).to_int();
 	state.minor_version = version.get_slice(".", 1).to_int();
 	state.use_named_skin_binds = p_flags & IMPORT_USE_NAMED_SKIN_BINDS;
+	state.compress_flags = p_compress_flags;
 
 	/* STEP 0 PARSE SCENE */
 	Error err = _parse_scenes(state);

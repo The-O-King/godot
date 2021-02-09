@@ -116,6 +116,7 @@ private:
 	Spatial *_generate_scene(const String &p_path, const FBXDocParser::Document *p_document,
 			const uint32_t p_flags,
 			int p_bake_fps,
+			const uint32_t p_compress_flags,
 			const int32_t p_max_bone_weights,
 			bool p_is_blender_fbx);
 
@@ -129,7 +130,7 @@ public:
 
 	virtual void get_extensions(List<String> *r_extensions) const;
 	virtual uint32_t get_import_flags() const;
-	virtual Node *import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, List<String> *r_missing_deps, Error *r_err = NULL);
+	virtual Node *import_scene(const String &p_path, uint32_t p_flags, int p_bake_fps, uint32_t p_compress_flags, List<String> *r_missing_deps, Error *r_err = NULL);
 	void create_mesh_data_skin(ImportState &state, const Ref<FBXNode> &fbx_node, uint64_t mesh_id);
 };
 
