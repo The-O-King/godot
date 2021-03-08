@@ -195,7 +195,7 @@ ShaderGLES2::Version *ShaderGLES2::get_current_version() {
 	}
 
 	for (int j = 0; j < conditional_count; j++) {
-		bool enable = (conditional_version.version & (1 << j)) > 0;
+		bool enable = (conditional_version.version & (uint64_t(1) << j)) > 0;
 
 		if (enable) {
 			strings.push_back(conditional_defines[j]);
@@ -488,8 +488,8 @@ void ShaderGLES2::setup(
 		int p_fragment_code_start) {
 	ERR_FAIL_COND(version);
 
-	conditional_version.key = 0;
-	new_conditional_version.key = 0;
+	memset(conditional_version.key, 0, sizeof(conditional_version.key));
+	memset(new_conditional_version.key, 0, sizeof(new_conditional_version.key));
 	uniform_count = p_uniform_count;
 	conditional_count = p_conditional_count;
 	conditional_defines = p_conditional_defines;

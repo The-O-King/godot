@@ -28,10 +28,18 @@ precision highp int;
 
 attribute highp vec4 vertex_attrib; // attrib:0
 /* clang-format on */
+#ifdef USE_NORMAL_COMPRESSION
+attribute vec2 normal_attrib; // attrib:1
+#else
 attribute vec3 normal_attrib; // attrib:1
+#endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP)
+#ifdef USE_TANGENT_COMPRESSION
+attribute vec2 tangent_attrib; // attrib:2
+#else
 attribute vec4 tangent_attrib; // attrib:2
+#endif
 #endif
 
 #if defined(ENABLE_COLOR_INTERP)
@@ -98,6 +106,16 @@ uniform float light_normal_bias;
 #endif
 
 uniform int view_index;
+
+#if defined(USE_NORMAL_COMPRESSION) || defined(USE_TANGENT_COMPRESSION)
+vec3 sph_norm_to_vec(vec2 sph) {
+	float sin_th = sin(sph.x);
+	float cos_th = cos(sph.x);
+	float sin_ph = sin(sph.y);
+	float cos_ph = cos(sph.y);
+	return vec3(cos_th * sin_ph, sin_th * sin_ph, cos_ph);
+}
+#endif
 
 //
 // varyings
@@ -338,12 +356,21 @@ void main() {
 
 #endif
 
+#ifdef USE_NORMAL_COMPRESSION
+	vec3 normal = sph_norm_to_vec(normal_attrib * M_PI);
+#else
 	vec3 normal = normal_attrib;
+#endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP)
+#ifdef USE_TANGENT_COMPRESSION
+	vec3 tangent = sph_norm_to_vec(tangent_attrib * M_PI);
+	vec3 binormal = normalize(cross(normal, tangent));
+#else
 	vec3 tangent = tangent_attrib.xyz;
 	float binormalf = tangent_attrib.a;
 	vec3 binormal = normalize(cross(normal, tangent) * binormalf);
+#endif
 #endif
 
 #if defined(ENABLE_COLOR_INTERP)

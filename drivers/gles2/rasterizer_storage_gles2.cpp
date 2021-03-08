@@ -2277,28 +2277,30 @@ void RasterizerStorageGLES2::mesh_add_surface(RID p_mesh, uint32_t p_format, VS:
 
 			} break;
 			case VS::ARRAY_NORMAL: {
-				attribs[i].size = 3;
 
 				if (p_format & VS::ARRAY_COMPRESS_NORMAL) {
 					attribs[i].type = GL_BYTE;
-					stride += 4; //pad extra byte
+					attribs[i].size = 2;
+					stride += 2;
 					attribs[i].normalized = GL_TRUE;
 				} else {
 					attribs[i].type = GL_FLOAT;
+					attribs[i].size = 3;
 					stride += 12;
 					attribs[i].normalized = GL_FALSE;
 				}
 
 			} break;
 			case VS::ARRAY_TANGENT: {
-				attribs[i].size = 4;
 
 				if (p_format & VS::ARRAY_COMPRESS_TANGENT) {
 					attribs[i].type = GL_BYTE;
-					stride += 4;
+					attribs[i].size = 2;
+					stride += 2;
 					attribs[i].normalized = GL_TRUE;
 				} else {
 					attribs[i].type = GL_FLOAT;
+					attribs[i].size = 4;
 					stride += 16;
 					attribs[i].normalized = GL_FALSE;
 				}
