@@ -1944,6 +1944,8 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 
 	bool first = true;
 	bool prev_use_instancing = false;
+	bool prev_compressed_normal = false;
+	bool prev_compressed_tangent = false;
 
 	storage->info.render.draw_call_count += p_element_count;
 	bool prev_opaque_prepass = false;
@@ -2108,6 +2110,18 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 			}
 		}
 
+		bool compressed_normal = ((RasterizerStorageGLES3::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_COMPRESS_NORMAL;
+		if (compressed_normal != prev_compressed_normal) {
+			state.scene_shader.set_conditional(SceneShaderGLES3::USE_NORMAL_COMPRESSION, compressed_normal);
+			rebind = true;
+		}
+
+		bool compressed_tangent = ((RasterizerStorageGLES3::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_COMPRESS_TANGENT;
+		if (compressed_tangent != prev_compressed_tangent) {
+			state.scene_shader.set_conditional(SceneShaderGLES3::USE_TANGENT_COMPRESSION, compressed_tangent);
+			rebind = true;
+		}
+
 		if (material != prev_material || rebind) {
 			storage->info.render.material_switch_count++;
 
@@ -2140,6 +2154,8 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 		prev_shading = shading;
 		prev_skeleton = skeleton;
 		prev_use_instancing = use_instancing;
+		prev_compressed_normal = compressed_normal;
+		prev_compressed_tangent = compressed_tangent;
 		prev_opaque_prepass = use_opaque_prepass;
 		first = false;
 	}
@@ -2160,6 +2176,8 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 	state.scene_shader.set_conditional(SceneShaderGLES3::SHADOW_MODE_PCF_13, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_GI_PROBES, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_LIGHTMAP, false);
+	state.scene_shader.set_conditional(SceneShaderGLES3::USE_NORMAL_COMPRESSION, false);
+	state.scene_shader.set_conditional(SceneShaderGLES3::USE_TANGENT_COMPRESSION, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_LIGHTMAP_LAYERED, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_LIGHTMAP_CAPTURE, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_CONTACT_SHADOWS, false);

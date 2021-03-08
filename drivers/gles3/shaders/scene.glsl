@@ -25,9 +25,17 @@ ARRAY_INDEX=8,
 
 layout(location = 0) in highp vec4 vertex_attrib;
 /* clang-format on */
+#ifdef USE_NORMAL_COMPRESSION
+layout(location = 1) in vec2 normal_attrib;
+#else
 layout(location = 1) in vec3 normal_attrib;
+#endif
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP) || defined(LIGHT_USE_ANISOTROPY)
+#ifdef USE_TANGENT_COMPRESSION
+layout(location = 2) in vec2 tangent_attrib;
+#else
 layout(location = 2) in vec4 tangent_attrib;
+#endif
 #endif
 
 #if defined(ENABLE_COLOR_INTERP)
@@ -251,6 +259,16 @@ void light_process_spot(int idx, vec3 vertex, vec3 eye_vec, vec3 normal, float r
 
 #endif
 
+#if defined(USE_NORMAL_COMPRESSION) || defined(USE_TANGENT_COMPRESSION)
+vec3 sph_norm_to_vec(vec2 sph) {
+	float sin_th = sin(sph.x);
+	float cos_th = cos(sph.x);
+	float sin_ph = sin(sph.y);
+	float cos_ph = cos(sph.y);
+	return vec3(cos_th * sin_ph, sin_th * sin_ph, cos_ph);
+}
+#endif
+
 /* Varyings */
 
 out highp vec3 vertex_interp;
@@ -322,11 +340,19 @@ void main() {
 	}
 #endif
 
+#ifdef USE_NORMAL_COMPRESSION
+	vec3 normal = sph_norm_to_vec(normal_attrib * M_PI);
+#else
 	vec3 normal = normal_attrib;
+#endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP) || defined(LIGHT_USE_ANISOTROPY)
+#ifdef USE_TANGENT_COMPRESSION
+	vec3 tangent = sph_norm_to_vec(tangent_attrib * M_PI);
+#else
 	vec3 tangent = tangent_attrib.xyz;
 	float binormalf = tangent_attrib.a;
+#endif
 #endif
 
 #if defined(ENABLE_COLOR_INTERP)
@@ -338,8 +364,11 @@ void main() {
 #endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP) || defined(LIGHT_USE_ANISOTROPY)
-
+#ifdef USE_TANGENT_COMPRESSION
+	vec3 binormal = normalize(cross(normal, tangent));
+#else
 	vec3 binormal = normalize(cross(normal, tangent) * binormalf);
+#endif
 #endif
 
 #if defined(ENABLE_UV_INTERP)
