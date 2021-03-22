@@ -440,12 +440,13 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					for (int i = 0; i < p_vertex_array_len; i++) {
 
-						float theta = Math::atan2(src[i].y, src[i].x) / Math_PI;
-						float phi = Math::acos(src[i].z) / Math_PI;
+						float sq = 1.0f / Math::sqrt(2 * src[i].z + 2);
+						float u = src[i].x * sq;
+						float v = src[i].y * sq;
 
 						int8_t vector[2] = {
-							(int8_t)CLAMP(theta * 127, -128, 127),
-							(int8_t)CLAMP(phi * 127, -128, 127),
+							(int8_t)CLAMP(u * 127, -128, 127),
+							(int8_t)CLAMP(v * 127, -128, 127),
 						};
 
 						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 2);
@@ -472,12 +473,14 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
 					for (int i = 0; i < p_vertex_array_len; i++) {
-						float theta = atan2(src[i * 4 + 1], src[i * 4 + 0]) / Math_PI;
-						float phi = acos(src[i * 4 + 2]) / Math_PI;
+
+						float sq = 1.0f / Math::sqrt(2 * src[i * 4 + 2] + 2);
+						float u = src[i * 4 + 0] * sq;
+						float v = src[i * 4 + 1] * sq;
 
 						int8_t vector[2] = {
-							(int8_t)CLAMP(theta * 127, -128, 127),
-							(int8_t)CLAMP(phi * 127, -128, 127)
+							(int8_t)CLAMP(u * 127, -128, 127),
+							(int8_t)CLAMP(v * 127, -128, 127)
 						};
 
 						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 2);
@@ -1256,21 +1259,17 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					PoolVector<Vector3>::Write w = arr.write();
-					const float multiplier = Math_PI / 127.f;
 
 					for (int j = 0; j < p_vertex_len; j++) {
-						const int8_t *v = (const int8_t *)&r[j * total_elem_size + offsets[i]];
-						float theta = float(v[0]) * multiplier;
-						float phi = float(v[1]) * multiplier;
 
-						float sin_th = Math::sin(theta);
-						float cos_th = Math::cos(theta);
-						float sin_ph = Math::sin(phi);
-						float cos_ph = Math::cos(phi);
+						const int8_t *n = (const int8_t *)&r[j * total_elem_size + offsets[i]];
 
-						w[j] = Vector3(cos_th * sin_ph,
-								sin_th * sin_ph,
-								cos_ph);
+						float u = n[0];
+						float v = n[1];
+						float neg_dot = -1 * (u * u + v * v);
+						float sq = 2 * Math::sqrt(neg_dot + 1);
+
+						w[j] = Vector3(u * sq, v * sq, 2 * neg_dot + 1);
 					}
 				} else {
 					PoolVector<Vector3>::Write w = arr.write();
@@ -1290,21 +1289,19 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 				arr.resize(p_vertex_len * 4);
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
 					PoolVector<float>::Write w = arr.write();
-					const float multiplier = Math_PI / 127.f;
 
 					for (int j = 0; j < p_vertex_len; j++) {
-						const int8_t *v = (const int8_t *)&r[j * total_elem_size + offsets[i]];
-						float theta = float(v[0]) * multiplier;
-						float phi = float(v[1]) * multiplier;
 
-						float sin_th = Math::sin(theta);
-						float cos_th = Math::cos(theta);
-						float sin_ph = Math::sin(phi);
-						float cos_ph = Math::cos(phi);
+						const int8_t *t = (const int8_t *)&r[j * total_elem_size + offsets[i]];
 
-						w[j * 3 + 0] = cos_th * sin_ph;
-						w[j * 3 + 1] = sin_th * sin_ph;
-						w[j * 3 + 2] = cos_ph;
+						float u = t[0];
+						float v = t[1];
+						float neg_dot = -1 * (u * u + v * v);
+						float sq = 2 * Math::sqrt(neg_dot + 1);
+
+						w[j * 3 + 0] = u * sq;
+						w[j * 3 + 1] = v * sq;
+						w[j * 3 + 2] = 2 * neg_dot + 1;
 					}
 				} else {
 					PoolVector<float>::Write w = arr.write();

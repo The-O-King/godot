@@ -260,12 +260,10 @@ void light_process_spot(int idx, vec3 vertex, vec3 eye_vec, vec3 normal, float r
 #endif
 
 #if defined(USE_NORMAL_COMPRESSION) || defined(USE_TANGENT_COMPRESSION)
-vec3 sph_norm_to_vec(vec2 sph) {
-	float sin_th = sin(sph.x);
-	float cos_th = cos(sph.x);
-	float sin_ph = sin(sph.y);
-	float cos_ph = cos(sph.y);
-	return vec3(cos_th * sin_ph, sin_th * sin_ph, cos_ph);
+vec3 sph_map_to_vec(vec2 enc) {
+	float neg_dot = -dot(enc, enc);
+	float sq = 2.0 * sqrt(neg_dot + 1.0);
+	return vec3(enc * sq, 2.0 * neg_dot + 1.0);
 }
 #endif
 
@@ -341,14 +339,14 @@ void main() {
 #endif
 
 #ifdef USE_NORMAL_COMPRESSION
-	vec3 normal = sph_norm_to_vec(normal_attrib * M_PI);
+	vec3 normal = sph_map_to_vec(normal_attrib);
 #else
 	vec3 normal = normal_attrib;
 #endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP) || defined(LIGHT_USE_ANISOTROPY)
 #ifdef USE_TANGENT_COMPRESSION
-	vec3 tangent = sph_norm_to_vec(tangent_attrib * M_PI);
+	vec3 tangent = sph_map_to_vec(tangent_attrib);
 #else
 	vec3 tangent = tangent_attrib.xyz;
 	float binormalf = tangent_attrib.a;
