@@ -108,10 +108,11 @@ uniform float light_normal_bias;
 uniform int view_index;
 
 #if defined(USE_NORMAL_COMPRESSION) || defined(USE_TANGENT_COMPRESSION)
-vec3 sph_map_to_vec(vec2 enc) {
-	float neg_dot = -dot(enc, enc);
-	float sq = 2.0 * sqrt(neg_dot + 1.0);
-	return vec3(enc * sq, 2.0 * neg_dot + 1.0);
+vec3 oct_to_vec3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	float t = max(-v.z, 0.0);
+	v.xy += t * -sign(v.xy);
+	return v;
 }
 #endif
 
@@ -355,20 +356,20 @@ void main() {
 #endif
 
 #ifdef USE_NORMAL_COMPRESSION
-	vec3 normal = sph_map_to_vec(normal_attrib);
+	vec3 normal = oct_to_vec3(normal_attrib);
 #else
 	vec3 normal = normal_attrib;
 #endif
 
 #if defined(ENABLE_TANGENT_INTERP) || defined(ENABLE_NORMALMAP)
 #ifdef USE_TANGENT_COMPRESSION
-	vec3 tangent = sph_map_to_vec(tangent_attrib);
-	vec3 binormal = normalize(cross(normal, tangent));
+	vec3 tangent = oct_to_vec3(vec2(tangent_attrib.x, abs(tangent_attrib.y) * 2.0 - 1.0));
+	float binormalf = sign(tangent_attrib.y);
 #else
 	vec3 tangent = tangent_attrib.xyz;
 	float binormalf = tangent_attrib.a;
-	vec3 binormal = normalize(cross(normal, tangent) * binormalf);
 #endif
+	vec3 binormal = normalize(cross(normal, tangent) * binormalf);
 #endif
 
 #if defined(ENABLE_COLOR_INTERP)

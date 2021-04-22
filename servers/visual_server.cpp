@@ -329,6 +329,35 @@ RID VisualServer::get_white_texture() {
 #define SMALL_VEC2 Vector2(0.00001, 0.00001)
 #define SMALL_VEC3 Vector3(0.00001, 0.00001, 0.00001)
 
+// Maps normalized vector to an octohedron projected onto the cartesian plane
+// Resulting 2D vector in range [-1, 1]
+// See http://jcgt.org/published/0003/02/01/ for details
+Vector2 norm_to_oct(const Vector3 v) {
+	const float invL1Norm = (1.0f) / (Math::absf(v.x) + Math::absf(v.y) + Math::absf(v.z));
+
+	Vector2 res;
+
+	if (v.z < 0.0f) {
+		res.x = (1.0f - Math::absf(v.y * invL1Norm)) * SGN(v.x);
+		res.y = (1.0f - Math::absf(v.x * invL1Norm)) * SGN(v.y);
+	} else {
+		res.x = v.x * invL1Norm;
+		res.y = v.y * invL1Norm;
+	}
+
+	return res;
+}
+
+// Convert Octohedron-mapped normalized vector back to Cartesian
+// Assumes normalized format (elements of v within range [-1, 1])
+Vector3 oct_to_norm(const Vector2 v) {
+	Vector3 res(v.x, v.y, 1 - (Math::absf(v.x) + Math::absf(v.y)));
+	float t = std::max(-res.z, 0.0f);
+	res.x += t * -SGN(res.x);
+	res.y += t * -SGN(res.y);
+	return res;
+}
+
 Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_t *p_offsets, uint32_t p_stride, PoolVector<uint8_t> &r_vertex_array, int p_vertex_array_len, PoolVector<uint8_t> &r_index_array, int p_index_array_len, AABB &r_aabb, Vector<AABB> &r_bone_aabb) {
 	PoolVector<uint8_t>::Write vw = r_vertex_array.write();
 
@@ -440,13 +469,10 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					for (int i = 0; i < p_vertex_array_len; i++) {
 
-						float sq = 1.0f / Math::sqrt(2 * src[i].z + 2);
-						float u = src[i].x * sq;
-						float v = src[i].y * sq;
-
+						Vector2 res = norm_to_oct(src[i]);
 						int8_t vector[2] = {
-							(int8_t)CLAMP(u * 127, -128, 127),
-							(int8_t)CLAMP(v * 127, -128, 127),
+							(int8_t)CLAMP(res.x * 127, -128, 127),
+							(int8_t)CLAMP(res.y * 127, -128, 127),
 						};
 
 						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 2);
@@ -470,17 +496,21 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 				PoolVector<real_t>::Read read = array.read();
 				const real_t *src = read.ptr();
-
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
+					const float bias = 1.0f / 127;
 					for (int i = 0; i < p_vertex_array_len; i++) {
+						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
+						Vector2 res = norm_to_oct(source);
 
-						float sq = 1.0f / Math::sqrt(2 * src[i * 4 + 2] + 2);
-						float u = src[i * 4 + 0] * sq;
-						float v = src[i * 4 + 1] * sq;
+						res.y = res.y * 0.5f + 0.5;
+						if (res.y < bias)
+							res.y = bias;
+						if (src[i * 4 + 3] < 0)
+							res.y *= -1;
 
 						int8_t vector[2] = {
-							(int8_t)CLAMP(u * 127, -128, 127),
-							(int8_t)CLAMP(v * 127, -128, 127)
+							(int8_t)CLAMP(res.x * 127, -128, 127),
+							(int8_t)CLAMP(res.y * 127, -128, 127)
 						};
 
 						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 2);
@@ -1263,13 +1293,9 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					for (int j = 0; j < p_vertex_len; j++) {
 
 						const int8_t *n = (const int8_t *)&r[j * total_elem_size + offsets[i]];
+						Vector2 enc(n[0] / 127.0, n[1] / 127.0);
 
-						float u = n[0];
-						float v = n[1];
-						float neg_dot = -1 * (u * u + v * v);
-						float sq = 2 * Math::sqrt(neg_dot + 1);
-
-						w[j] = Vector3(u * sq, v * sq, 2 * neg_dot + 1);
+						w[j] = oct_to_norm(enc);
 					}
 				} else {
 					PoolVector<Vector3>::Write w = arr.write();
@@ -1293,15 +1319,13 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					for (int j = 0; j < p_vertex_len; j++) {
 
 						const int8_t *t = (const int8_t *)&r[j * total_elem_size + offsets[i]];
+						Vector2 enc(t[0] / 127.0, Math::absf(t[1] / 127.0f) * 2 - 1);
+						Vector3 dec = oct_to_norm(enc);
 
-						float u = t[0];
-						float v = t[1];
-						float neg_dot = -1 * (u * u + v * v);
-						float sq = 2 * Math::sqrt(neg_dot + 1);
-
-						w[j * 3 + 0] = u * sq;
-						w[j * 3 + 1] = v * sq;
-						w[j * 3 + 2] = 2 * neg_dot + 1;
+						w[j * 3 + 0] = dec.x;
+						w[j * 3 + 1] = dec.y;
+						w[j * 3 + 2] = dec.z;
+						w[j * 3 + 2] = SGN(t[1]);
 					}
 				} else {
 					PoolVector<float>::Write w = arr.write();
