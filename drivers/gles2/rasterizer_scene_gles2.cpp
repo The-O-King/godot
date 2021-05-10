@@ -2417,9 +2417,6 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 	RasterizerStorageGLES2::Skeleton *prev_skeleton = nullptr;
 	RasterizerStorageGLES2::GeometryOwner *prev_owner = nullptr;
 
-	bool prev_compressed_normal = false;
-	bool prev_compressed_tangent = false;
-
 	Transform view_transform_inverse = p_view_transform.inverse();
 	CameraMatrix projection_inverse = p_projection.inverse();
 
@@ -2669,18 +2666,6 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 			storage->info.render.surface_switch_count++;
 		}
 
-		bool compressed_normal = ((RasterizerStorageGLES2::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_COMPRESS_NORMAL;
-		if (compressed_normal != prev_compressed_normal) {
-			state.scene_shader.set_conditional(SceneShaderGLES2::USE_NORMAL_COMPRESSION, compressed_normal);
-			rebind = true;
-		}
-
-		bool compressed_tangent = ((RasterizerStorageGLES2::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_COMPRESS_TANGENT;
-		if (compressed_tangent != prev_compressed_tangent) {
-			state.scene_shader.set_conditional(SceneShaderGLES2::USE_TANGENT_COMPRESSION, compressed_tangent);
-			rebind = true;
-		}
-
 		bool shader_rebind = false;
 		if (rebind || material != prev_material) {
 			storage->info.render.material_switch_count++;
@@ -2798,8 +2783,6 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 		prev_material = material;
 		prev_skeleton = skeleton;
 		prev_instancing = instancing;
-		prev_compressed_normal = compressed_normal;
-		prev_compressed_tangent = compressed_tangent;
 		prev_light = light;
 		prev_refprobe_1 = refprobe_1;
 		prev_refprobe_2 = refprobe_2;
@@ -2820,8 +2803,6 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_REFLECTION_PROBE1, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_REFLECTION_PROBE2, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_LIGHTMAP, false);
-	state.scene_shader.set_conditional(SceneShaderGLES2::USE_NORMAL_COMPRESSION, false);
-	state.scene_shader.set_conditional(SceneShaderGLES2::USE_TANGENT_COMPRESSION, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_LIGHTMAP_CAPTURE, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::FOG_DEPTH_ENABLED, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::FOG_HEIGHT_ENABLED, false);

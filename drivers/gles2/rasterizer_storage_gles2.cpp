@@ -2096,21 +2096,21 @@ static PoolVector<uint8_t> _unpack_half_floats(const PoolVector<uint8_t> &array,
 			} break;
 			case VS::ARRAY_NORMAL: {
 				if (p_format & VS::ARRAY_COMPRESS_NORMAL) {
+					src_size[i] = 2;
+					dst_size[i] = 2;
+				} else {
 					src_size[i] = 4;
 					dst_size[i] = 4;
-				} else {
-					src_size[i] = 12;
-					dst_size[i] = 12;
 				}
 
 			} break;
 			case VS::ARRAY_TANGENT: {
 				if (p_format & VS::ARRAY_COMPRESS_TANGENT) {
+					src_size[i] = 2;
+					dst_size[i] = 2;
+				} else {
 					src_size[i] = 4;
 					dst_size[i] = 4;
-				} else {
-					src_size[i] = 16;
-					dst_size[i] = 16;
 				}
 
 			} break;
@@ -2278,31 +2278,29 @@ void RasterizerStorageGLES2::mesh_add_surface(RID p_mesh, uint32_t p_format, VS:
 			} break;
 			case VS::ARRAY_NORMAL: {
 
+				attribs[i].normalized = GL_TRUE;
 				if (p_format & VS::ARRAY_COMPRESS_NORMAL) {
 					attribs[i].type = GL_BYTE;
 					attribs[i].size = 2;
 					stride += 2;
-					attribs[i].normalized = GL_TRUE;
 				} else {
-					attribs[i].type = GL_FLOAT;
-					attribs[i].size = 3;
-					stride += 12;
-					attribs[i].normalized = GL_FALSE;
+					attribs[i].type = GL_SHORT;
+					attribs[i].size = 2;
+					stride += 4;
 				}
 
 			} break;
 			case VS::ARRAY_TANGENT: {
 
+				attribs[i].normalized = GL_TRUE;
 				if (p_format & VS::ARRAY_COMPRESS_TANGENT) {
 					attribs[i].type = GL_BYTE;
 					attribs[i].size = 2;
 					stride += 2;
-					attribs[i].normalized = GL_TRUE;
 				} else {
-					attribs[i].type = GL_FLOAT;
-					attribs[i].size = 4;
-					stride += 16;
-					attribs[i].normalized = GL_FALSE;
+					attribs[i].type = GL_SHORT;
+					attribs[i].size = 2;
+					stride += 4;
 				}
 
 			} break;

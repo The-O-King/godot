@@ -480,8 +480,14 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 				} else {
 					for (int i = 0; i < p_vertex_array_len; i++) {
-						float vector[3] = { src[i].x, src[i].y, src[i].z };
-						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 3 * 4);
+
+						Vector2 res = norm_to_oct(src[i]);
+						int16_t vector[2] = {
+							(int16_t)CLAMP(res.x * 32767, -32768, 32767),
+							(int16_t)CLAMP(res.y * 32767, -32768, 32767),
+						};
+
+						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 4);
 					}
 				}
 
@@ -517,15 +523,23 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 					}
 
 				} else {
+					const float bias = 1.0f / 32767;
 					for (int i = 0; i < p_vertex_array_len; i++) {
-						float xyzw[4] = {
-							src[i * 4 + 0],
-							src[i * 4 + 1],
-							src[i * 4 + 2],
-							src[i * 4 + 3]
+						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
+						Vector2 res = norm_to_oct(source);
+
+						res.y = res.y * 0.5f + 0.5;
+						if (res.y < bias)
+							res.y = bias;
+						if (src[i * 4 + 3] < 0)
+							res.y *= -1;
+
+						int16_t vector[2] = {
+							(int16_t)CLAMP(res.x * 32767, -32768, 32767),
+							(int16_t)CLAMP(res.y * 32767, -32768, 32767)
 						};
 
-						memcpy(&vw[p_offsets[ai] + i * p_stride], xyzw, 4 * 4);
+						memcpy(&vw[p_offsets[ai] + i * p_stride], vector, 4);
 					}
 				}
 
@@ -809,7 +823,7 @@ uint32_t VisualServer::mesh_surface_make_offsets_from_format(uint32_t p_format, 
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 3;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -818,7 +832,7 @@ uint32_t VisualServer::mesh_surface_make_offsets_from_format(uint32_t p_format, 
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 4;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -985,7 +999,7 @@ void VisualServer::mesh_add_surface_from_arrays(RID p_mesh, PrimitiveType p_prim
 				if (p_compress_format & ARRAY_COMPRESS_NORMAL) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 3;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -994,7 +1008,7 @@ void VisualServer::mesh_add_surface_from_arrays(RID p_mesh, PrimitiveType p_prim
 				if (p_compress_format & ARRAY_COMPRESS_TANGENT) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 4;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -1149,7 +1163,7 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 3;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -1158,7 +1172,7 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
 					elem_size = sizeof(uint8_t) * 2;
 				} else {
-					elem_size = sizeof(float) * 4;
+					elem_size = sizeof(uint16_t) * 2;
 				}
 
 			} break;
@@ -1301,8 +1315,11 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					PoolVector<Vector3>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
-						const float *v = (const float *)&r[j * total_elem_size + offsets[i]];
-						w[j] = Vector3(v[0], v[1], v[2]);
+
+						const int16_t *n = (const int16_t *)&r[j * total_elem_size + offsets[i]];
+						Vector2 enc(n[0] / 32767.0, n[1] / 32767.0);
+
+						w[j] = oct_to_norm(enc);
 					}
 				}
 
@@ -1331,10 +1348,14 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					PoolVector<float>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
-						const float *v = (const float *)&r[j * total_elem_size + offsets[i]];
-						for (int k = 0; k < 4; k++) {
-							w[j * 4 + k] = v[k];
-						}
+						const int16_t *t = (const int16_t *)&r[j * total_elem_size + offsets[i]];
+						Vector2 enc(t[0] / 32767.0, Math::absf(t[1] / 32767.0f) * 2 - 1);
+						Vector3 dec = oct_to_norm(enc);
+
+						w[j * 3 + 0] = dec.x;
+						w[j * 3 + 1] = dec.y;
+						w[j * 3 + 2] = dec.z;
+						w[j * 3 + 2] = SGN(t[1]);
 					}
 				}
 
