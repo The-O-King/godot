@@ -468,7 +468,6 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 				if (p_format & ARRAY_COMPRESS_NORMAL) {
 					for (int i = 0; i < p_vertex_array_len; i++) {
-
 						Vector2 res = norm_to_oct(src[i]);
 						int8_t vector[2] = {
 							(int8_t)CLAMP(res.x * 127, -128, 127),
@@ -480,7 +479,6 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 				} else {
 					for (int i = 0; i < p_vertex_array_len; i++) {
-
 						Vector2 res = norm_to_oct(src[i]);
 						int16_t vector[2] = {
 							(int16_t)CLAMP(res.x * 32767, -32768, 32767),
@@ -508,11 +506,8 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
 						Vector2 res = norm_to_oct(source);
 
-						res.y = res.y * 0.5f + 0.5;
-						if (res.y < bias)
-							res.y = bias;
-						if (src[i * 4 + 3] < 0)
-							res.y *= -1;
+						res.y = res.y * 0.5f + 0.5f;
+						res.y = MAX(res.y, bias) * SGN(src[i * 4 + 3]);
 
 						int8_t vector[2] = {
 							(int8_t)CLAMP(res.x * 127, -128, 127),
@@ -528,11 +523,8 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
 						Vector2 res = norm_to_oct(source);
 
-						res.y = res.y * 0.5f + 0.5;
-						if (res.y < bias)
-							res.y = bias;
-						if (src[i * 4 + 3] < 0)
-							res.y *= -1;
+						res.y = res.y * 0.5f + 0.5f;
+						res.y = MAX(res.y, bias) * SGN(src[i * 4 + 3]);
 
 						int16_t vector[2] = {
 							(int16_t)CLAMP(res.x * 32767, -32768, 32767),
@@ -1305,9 +1297,8 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					PoolVector<Vector3>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
-
 						const int8_t *n = (const int8_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(n[0] / 127.0, n[1] / 127.0);
+						Vector2 enc(n[0] / 127.0f, n[1] / 127.0f);
 
 						w[j] = oct_to_norm(enc);
 					}
@@ -1315,9 +1306,8 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					PoolVector<Vector3>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
-
 						const int16_t *n = (const int16_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(n[0] / 32767.0, n[1] / 32767.0);
+						Vector2 enc(n[0] / 32767.0f, n[1] / 32767.0f);
 
 						w[j] = oct_to_norm(enc);
 					}
@@ -1334,9 +1324,8 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 					PoolVector<float>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
-
 						const int8_t *t = (const int8_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(t[0] / 127.0, Math::absf(t[1] / 127.0f) * 2 - 1);
+						Vector2 enc(t[0] / 127.0f, Math::absf(t[1] / 127.0f) * 2 - 1);
 						Vector3 dec = oct_to_norm(enc);
 
 						w[j * 3 + 0] = dec.x;
@@ -1349,7 +1338,7 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 
 					for (int j = 0; j < p_vertex_len; j++) {
 						const int16_t *t = (const int16_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(t[0] / 32767.0, Math::absf(t[1] / 32767.0f) * 2 - 1);
+						Vector2 enc(t[0] / 32767.0f, Math::absf(t[1] / 32767.0f) * 2 - 1);
 						Vector3 dec = oct_to_norm(enc);
 
 						w[j * 3 + 0] = dec.x;
