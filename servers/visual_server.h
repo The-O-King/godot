@@ -66,6 +66,10 @@ protected:
 public:
 	static VisualServer *get_singleton();
 	static VisualServer *create();
+	static Vector2 norm_to_oct(const Vector3 v);
+	static Vector2 tangent_to_oct(const Vector3 v, const float sign, const bool high_precision);
+	static Vector3 oct_to_norm(const Vector2 v);
+	static Vector3 oct_to_tangent(const Vector2 v, float *out_sign);
 
 	enum {
 

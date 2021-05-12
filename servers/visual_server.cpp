@@ -332,7 +332,7 @@ RID VisualServer::get_white_texture() {
 // Maps normalized vector to an octohedron projected onto the cartesian plane
 // Resulting 2D vector in range [-1, 1]
 // See http://jcgt.org/published/0003/02/01/ for details
-Vector2 norm_to_oct(const Vector3 v) {
+Vector2 VisualServer::norm_to_oct(const Vector3 v) {
 	const float invL1Norm = (1.0f) / (Math::absf(v.x) + Math::absf(v.y) + Math::absf(v.z));
 
 	Vector2 res;
@@ -348,13 +348,37 @@ Vector2 norm_to_oct(const Vector3 v) {
 	return res;
 }
 
+// Maps normalized tangent vector to an octahedron projected onto the cartesian plane
+// Encodes the tangent vector sign in the second componenet of the returned Vector2 for use in shaders
+// high_precision specifies whether the encoding will be 32 bit (true) or 16 bit (false)
+// Resulting 2D vector in range [-1, 1]
+// See http://jcgt.org/published/0003/02/01/ for details
+Vector2 VisualServer::tangent_to_oct(const Vector3 v, const float sign, const bool high_precision) {
+	float bias = high_precision ? 1.0f / 32767 : 1.0f / 127;
+	Vector2 res = norm_to_oct(v);
+	res.y = res.y * 0.5f + 0.5f;
+	res.y = MAX(res.y, bias) * SGN(sign);
+	return res;
+}
+
 // Convert Octohedron-mapped normalized vector back to Cartesian
 // Assumes normalized format (elements of v within range [-1, 1])
-Vector3 oct_to_norm(const Vector2 v) {
+Vector3 VisualServer::oct_to_norm(const Vector2 v) {
 	Vector3 res(v.x, v.y, 1 - (Math::absf(v.x) + Math::absf(v.y)));
 	float t = std::max(-res.z, 0.0f);
 	res.x += t * -SGN(res.x);
 	res.y += t * -SGN(res.y);
+	return res;
+}
+
+// Convert Octohedron-mapped normalized tangent vector back to Cartesian
+// out_sign provides the direction for the original cartesian tangent
+// Assumes normalized format (elements of v within range [-1, 1])
+Vector3 VisualServer::oct_to_tangent(const Vector2 v, float *out_sign) {
+	Vector2 v_decompressed = v;
+	v_decompressed.y = Math::absf(v_decompressed.y) * 2 - 1;
+	Vector3 res = oct_to_norm(v_decompressed);
+	*out_sign = SGN(v[1]);
 	return res;
 }
 
@@ -501,13 +525,9 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 				PoolVector<real_t>::Read read = array.read();
 				const real_t *src = read.ptr();
 				if (p_format & ARRAY_COMPRESS_TANGENT) {
-					const float bias = 1.0f / 127;
 					for (int i = 0; i < p_vertex_array_len; i++) {
 						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
-						Vector2 res = norm_to_oct(source);
-
-						res.y = res.y * 0.5f + 0.5f;
-						res.y = MAX(res.y, bias) * SGN(src[i * 4 + 3]);
+						Vector2 res = tangent_to_oct(source, src[i * 4 + 3], false);
 
 						int8_t vector[2] = {
 							(int8_t)CLAMP(res.x * 127, -128, 127),
@@ -518,13 +538,9 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 					}
 
 				} else {
-					const float bias = 1.0f / 32767;
 					for (int i = 0; i < p_vertex_array_len; i++) {
 						Vector3 source(src[i * 4 + 0], src[i * 4 + 1], src[i * 4 + 2]);
-						Vector2 res = norm_to_oct(source);
-
-						res.y = res.y * 0.5f + 0.5f;
-						res.y = MAX(res.y, bias) * SGN(src[i * 4 + 3]);
+						Vector2 res = tangent_to_oct(source, src[i * 4 + 3], true);
 
 						int16_t vector[2] = {
 							(int16_t)CLAMP(res.x * 32767, -32768, 32767),
@@ -1325,26 +1341,24 @@ Array VisualServer::_get_array_from_surface(uint32_t p_format, PoolVector<uint8_
 
 					for (int j = 0; j < p_vertex_len; j++) {
 						const int8_t *t = (const int8_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(t[0] / 127.0f, Math::absf(t[1] / 127.0f) * 2 - 1);
-						Vector3 dec = oct_to_norm(enc);
+						Vector2 enc(t[0] / 127.0f, t[1] / 127.0f);
+						Vector3 dec = oct_to_tangent(enc, &w[j * 3 + 2]);
 
 						w[j * 3 + 0] = dec.x;
 						w[j * 3 + 1] = dec.y;
 						w[j * 3 + 2] = dec.z;
-						w[j * 3 + 2] = SGN(t[1]);
 					}
 				} else {
 					PoolVector<float>::Write w = arr.write();
 
 					for (int j = 0; j < p_vertex_len; j++) {
 						const int16_t *t = (const int16_t *)&r[j * total_elem_size + offsets[i]];
-						Vector2 enc(t[0] / 32767.0f, Math::absf(t[1] / 32767.0f) * 2 - 1);
-						Vector3 dec = oct_to_norm(enc);
+						Vector2 enc(t[0] / 32767.0f, t[1] / 32767.0f);
+						Vector3 dec = oct_to_tangent(enc, &w[j * 3 + 2]);
 
 						w[j * 3 + 0] = dec.x;
 						w[j * 3 + 1] = dec.y;
 						w[j * 3 + 2] = dec.z;
-						w[j * 3 + 2] = SGN(t[1]);
 					}
 				}
 
