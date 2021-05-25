@@ -1944,6 +1944,7 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 
 	bool first = true;
 	bool prev_use_instancing = false;
+	bool prev_octahedral_compression = false;
 
 	storage->info.render.draw_call_count += p_element_count;
 	bool prev_opaque_prepass = false;
@@ -2108,6 +2109,12 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 			}
 		}
 
+		bool octahedral_compression = ((RasterizerStorageGLES3::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_FLAG_USE_OCTAHEDRAL_COMPRESSION;
+		if (octahedral_compression != prev_octahedral_compression) {
+			state.scene_shader.set_conditional(SceneShaderGLES3::ENABLE_OCTAHEDRAL_COMPRESSION, octahedral_compression);
+			rebind = true;
+		}
+
 		if (material != prev_material || rebind) {
 			storage->info.render.material_switch_count++;
 
@@ -2140,6 +2147,7 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 		prev_shading = shading;
 		prev_skeleton = skeleton;
 		prev_use_instancing = use_instancing;
+		prev_octahedral_compression = octahedral_compression;
 		prev_opaque_prepass = use_opaque_prepass;
 		first = false;
 	}
@@ -2148,6 +2156,7 @@ void RasterizerSceneGLES3::_render_list(RenderList::Element **p_elements, int p_
 
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_INSTANCING, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_SKELETON, false);
+	state.scene_shader.set_conditional(SceneShaderGLES3::ENABLE_OCTAHEDRAL_COMPRESSION, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_RADIANCE_MAP, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_FORWARD_LIGHTING, false);
 	state.scene_shader.set_conditional(SceneShaderGLES3::USE_LIGHT_DIRECTIONAL, false);
