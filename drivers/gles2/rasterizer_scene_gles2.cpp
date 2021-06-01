@@ -2670,7 +2670,11 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 
 		bool octahedral_compression = ((RasterizerStorageGLES2::Surface *)e->geometry)->format & VisualServer::ArrayFormat::ARRAY_FLAG_USE_OCTAHEDRAL_COMPRESSION;
 		if (octahedral_compression != prev_octahedral_compression) {
-			state.scene_shader.set_conditional(SceneShaderGLES2::ENABLE_OCTAHEDRAL_COMPRESSION, octahedral_compression);
+			if (octahedral_compression) {
+				state.scene_shader.add_custom_define("#define ENABLE_OCTAHEDRAL_COMPRESSION\n");
+			} else {
+				state.scene_shader.remove_custom_define("#define ENABLE_OCTAHEDRAL_COMPRESSION\n");
+			}
 			rebind = true;
 		}
 
@@ -2800,11 +2804,11 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 	}
 
 	_setup_light_type(nullptr, nullptr); //clear light stuff
+	state.scene_shader.remove_custom_define("#define ENABLE_OCTAHEDRAL_COMPRESSION\n");
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::SHADELESS, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::BASE_PASS, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_INSTANCING, false);
-	state.scene_shader.set_conditional(SceneShaderGLES2::ENABLE_OCTAHEDRAL_COMPRESSION, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_RADIANCE_MAP, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::LIGHT_USE_PSSM4, false);
 	state.scene_shader.set_conditional(SceneShaderGLES2::LIGHT_USE_PSSM2, false);
